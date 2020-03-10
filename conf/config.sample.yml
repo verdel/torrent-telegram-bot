@@ -4,9 +4,11 @@ telegram:
     allow_chat:
       - telegram_id: 111111111
         torrent_permission: 'all'
+        notify: True
 
       - telegram_id: 222222222
         torrent_permission: 'personal'
+        notify: True
 
     proxy:
       url: socks5://socks.com:55555

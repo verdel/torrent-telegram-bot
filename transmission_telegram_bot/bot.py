@@ -388,7 +388,6 @@ def check_torrent_download_status():
                     else:
                         try:
                             if task.doneDate:
-                                response = u'Torrent "*{}*" was successfully downloaded'.format(task.name)
                                 db.complete_torrent(torrent[1])
                         except Exception as exc:
                             logger.error(('{}({})'.format(type(exc).__name__, exc)))
@@ -396,10 +395,17 @@ def check_torrent_download_status():
                             if task.doneDate:
                                 global updater
                                 try:
-                                    updater.bot.sendMessage(chat_id=torrent[0],
-                                                            text=response,
-                                                            parse_mode='Markdown'
-                                                            )
+                                    try:
+                                        notify_flag = cfg['telegram']['allow_chat'].get(torrent[0], True)
+                                    except Exception:
+                                        notify_flag = True
+                                    else:
+                                        if notify_flag:
+                                            response = u'Torrent "*{}*" was successfully downloaded'.format(task.name)
+                                            updater.bot.sendMessage(chat_id=torrent[0],
+                                                                    text=response,
+                                                                    parse_mode='Markdown'
+                                                                    )
                                 except Exception as exc:
                                     logger.error(('{}({})'.format(type(exc).__name__, exc)))
 
