@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv sh
+ttbot -c /opt/transmission-telegram-bot/config.yml

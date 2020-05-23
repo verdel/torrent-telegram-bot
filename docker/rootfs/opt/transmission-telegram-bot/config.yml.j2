@@ -1,0 +1,32 @@
+telegram:
+    token: {{ TELEGRAM_TOKEN }}
+    allow_chat: 
+{% for item in ALLOW_CHAT|env_json %}
+        - telegram_id: {{ item['telegram_id'] }}
+          torrent_permission: '{{ item['torrent_permission'] }}'
+          notify: {{ item['notify'] | default(true) }}
+          {% if 'allow_category' in item %}
+          allow_category: {{ item['allow_category'] }}
+          {% endif %}
+{% endfor %}
+    proxy:
+      url: socks5://{{ TELEGRAM_PROXY_URL }}:{{ TELEGRAM_PROXY_PORT }}
+      username: {{ TELEGRAM_PROXY_USERNAME }}
+      password: {{ TELEGRAM_PROXY_PASSWORD }}
+
+transmission:
+    address: {{ TRANSMISSION_SERVER }}
+    port: {{ TRANSMISSION_PORT }}
+    user: {{ TRANSMISSION_USERNAME }}
+    password: {{ TRANSMISSION_PASSWORD }}
+    path:
+{% for item in TRANSMISSION_PATH|env_json %}
+      - category: {{ item['category'] }}
+        dir: '{{ item['dir'] }}'
+{% endfor %}
+
+db:
+    path: {{ DB_PATH }}
+
+schedule:
+    check_period: {{ DOWNLOAD_STATUS_CHECK_PERIOD }}
