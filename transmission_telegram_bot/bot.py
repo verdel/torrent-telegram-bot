@@ -97,9 +97,9 @@ def download_torrent_action(update, context):
     torrent_data = b64encode(torrent_data).decode('utf-8')
     context.user_data.clear()
     context.user_data.update({'torrent_data': torrent_data})
+    category = tools.get_torrent_category(config=cfg, chat_id=update.effective_chat.id)
 
     for transmission_path in cfg['transmission']['path']:
-        category = tools.get_torrent_permission(config=cfg, chat_id=update.effective_chat.id)
         if category:
             if transmission_path['category'] in category:
                 keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
