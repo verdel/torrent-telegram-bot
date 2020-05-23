@@ -99,7 +99,12 @@ def download_torrent_action(update, context):
     context.user_data.update({'torrent_data': torrent_data})
 
     for transmission_path in cfg['transmission']['path']:
-        keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
+        category = tools.get_torrent_permission(config=cfg, chat_id=update.effective_chat.id)
+        if category:
+            if transmission_path['category'] in category:
+                keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
+        else:
+            keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
     keyboard.append([InlineKeyboardButton('Cancel', callback_data='download:cancel')])
     try:
         context.bot.sendMessage(chat_id=update.effective_chat.id,

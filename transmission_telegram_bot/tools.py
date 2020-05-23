@@ -82,3 +82,18 @@ def get_torrent_permission(config, chat_id):
             return None
     else:
         return None
+
+
+def get_torrent_category(config, chat_id):
+    if 'allow_chat' in config['telegram']:
+        if config['telegram']['allow_chat']:
+            torrent_category = None
+            for entry in config['telegram']['allow_chat']:
+                if entry['telegram_id'] == chat_id:
+                    if 'allow_category' in entry:
+                        torrent_category = entry['allow_category']
+            return torrent_category
+        else:
+            return None
+    else:
+        return None

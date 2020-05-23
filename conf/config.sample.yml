@@ -4,6 +4,9 @@ telegram:
     allow_chat:
       - telegram_id: 111111111
         torrent_permission: 'all'
+        allow_category:
+          - Movies
+          - Series
         notify: True
 
       - telegram_id: 222222222
