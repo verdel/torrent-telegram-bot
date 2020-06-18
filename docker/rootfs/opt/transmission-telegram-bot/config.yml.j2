@@ -9,11 +9,12 @@ telegram:
           allow_category: {{ item['allow_category'] }}
           {% endif %}
 {% endfor %}
+{% if TELEGRAM_PROXY is defined %}
     proxy:
       url: socks5://{{ TELEGRAM_PROXY_URL }}:{{ TELEGRAM_PROXY_PORT }}
       username: {{ TELEGRAM_PROXY_USERNAME }}
       password: {{ TELEGRAM_PROXY_PASSWORD }}
-
+{% endif %}
 transmission:
     address: {{ TRANSMISSION_SERVER }}
     port: {{ TRANSMISSION_PORT }}
