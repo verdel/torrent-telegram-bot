@@ -1,37 +1,37 @@
 telegram:
-    token: tg-token
+  token: tg-token
 
-    allow_chat:
-      - telegram_id: 111111111
-        torrent_permission: 'all'
-        allow_category:
-          - Movies
-          - Series
-        notify: True
+  allow_chat:
+    - telegram_id: 111111111
+      torrent_permission: "all"
+      allow_category:
+        - Movies
+        - Series
+      notify_all: True
 
-      - telegram_id: 222222222
-        torrent_permission: 'personal'
-        notify: True
+    - telegram_id: 222222222
+      torrent_permission: "personal"
+      notify: True
 
-    proxy:
-      url: socks5://socks.com:55555
-      username: username
-      password: password
+  proxy:
+    url: socks5://socks.com:55555
+    username: username
+    password: password
 
 transmission:
-    address: transmission.local
-    port: 9091
-    user: username
-    password: password
-    path:
-      - category: 'Movies'
-        dir: '/mnt/data/Movies'
+  address: transmission.local
+  port: 9091
+  user: username
+  password: password
+  path:
+    - category: "Movies"
+      dir: "/mnt/data/Movies"
 
-      - category: 'Series'
-        dir: '/mnt/data/Series'
+    - category: "Series"
+      dir: "/mnt/data/Series"
 
 db:
-    path: conf/bot.db
+  path: conf/bot.db
 
 schedule:
-    check_period: 10
+  check_period: 10

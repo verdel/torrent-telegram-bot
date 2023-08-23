@@ -1,10 +1,11 @@
 telegram:
     token: {{ TELEGRAM_TOKEN }}
-    allow_chat: 
+    allow_chat:
 {% for item in ALLOW_CHAT|env_json %}
         - telegram_id: {{ item['telegram_id'] }}
           torrent_permission: '{{ item['torrent_permission'] }}'
-          notify: {{ item['notify'] | default(true) }}
+          notify: {{ item['notify'] | default(false) }}
+          notify_all: {{ item['notify_all'] | default(false) }}
           {% if 'allow_category' in item %}
           allow_category: {{ item['allow_category'] }}
           {% endif %}

@@ -365,7 +365,7 @@ class scheduled_checker_thread(Thread):
 
 
 def has_live_threads(threads):
-    return True in [t.isAlive() for t in threads]
+    return True in [t.is_alive() for t in threads]
 
 
 def start_bot():
@@ -398,6 +398,7 @@ def check_torrent_download_status():
                             logger.error(('{}({})'.format(type(exc).__name__, exc)))
                         else:
                             if task.doneDate:
+                                response = u'Torrent "*{}*" was successfully downloaded'.format(task.name)
                                 global updater
                                 try:
                                     try:
@@ -406,8 +407,15 @@ def check_torrent_download_status():
                                         notify_flag = True
                                     else:
                                         if notify_flag:
-                                            response = u'Torrent "*{}*" was successfully downloaded'.format(task.name)
                                             updater.bot.sendMessage(chat_id=torrent[0],
+                                                                    text=response,
+                                                                    parse_mode='Markdown'
+                                                                    )
+
+                                    notify_about_all = [chat["telegram_id"] for chat in cfg['telegram']['allow_chat'] if chat['notify_all']]
+                                    if notify_about_all:
+                                        for telegram_id in notify_about_all:
+                                            updater.bot.sendMessage(chat_id=telegram_id,
                                                                     text=response,
                                                                     parse_mode='Markdown'
                                                                     )
@@ -505,7 +513,7 @@ def main():
 
     while has_live_threads(threads):
         try:
-            [t.join(1) for t in threads if t is not None and t.isAlive()]
+            [t.join(1) for t in threads if t is not None and t.is_alive()]
         except KeyboardInterrupt:
             print("Sending kill to threads...")
             for t in threads:
