@@ -3,255 +3,293 @@
 
 import argparse
 import sys
-import time
 import traceback
-import transmission_telegram_bot.tools as tools
-from transmission_telegram_bot.transmission import Transmission
-from transmission_telegram_bot.db import DB
 from base64 import b64encode
-from emoji import emojize
 from functools import wraps
-from os import path
-from threading import Thread
-from telegram.ext.dispatcher import run_async
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from pathlib import Path
+from textwrap import dedent
 
+from emoji import emojize
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    request,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
-cfg = None
-transmission = None
-updater = None
-logger = None
+import transmission_telegram_bot.tools as tools
+from transmission_telegram_bot.db import DB
+from transmission_telegram_bot.transmission import Transmission
 
 
 def restricted(func):
     @wraps(func)
-    def wrapped(update, context, *args, **kwargs):
+    async def wrapped(update, context, *args, **kwargs):
         chat_id = update.effective_chat.id
-        if 'allow_chat' in cfg['telegram']:
-            if cfg['telegram']['allow_chat']:
-                allowed_chat = any(d['telegram_id'] == chat_id for d in cfg['telegram']['allow_chat'])
+        if "allow_chat" in cfg["telegram"]:
+            if cfg["telegram"]["allow_chat"]:
+                allowed_chat = any(d["telegram_id"] == chat_id for d in cfg["telegram"]["allow_chat"])
             else:
                 allowed_chat = False
         else:
             allowed_chat = False
 
         if allowed_chat:
-            return func(update, context, *args, **kwargs)
+            return await func(update, context, *args, **kwargs)
         else:
-            context.bot.sendMessage(chat_id=update.message.chat_id,
-                                    text=u'Oops! You are not allowed to interact with this bot.'
-                                    )
+            await context.bot.send_message(
+                chat_id=update.message.chat_id,
+                text="Oops! You are not allowed to interact with this bot.",
+            )
             return
+
     return wrapped
 
 
-@run_async
 @restricted
-def text_message_action(update, context):
-    routes = {u'Downloading': {'func': list_torrent_action, 'kwargs': {'type': 'download'}},
-              u'All': {'func': list_torrent_action, 'kwargs': {'type': 'all'}},
-              u'Delete': {'func': delete_torrent_action}
-              }
+async def text_message_action(update, context):
+    routes = {
+        "Downloading": {"func": list_torrent_action, "kwargs": {"type": "download"}},
+        "All": {"func": list_torrent_action, "kwargs": {"type": "all"}},
+        "Delete": {"func": delete_torrent_action},
+    }
     try:
         route = next(v for k, v in routes.items() if k in update.effective_message.text)
     except Exception:
-        unknown_command_action(update, context)
+        await unknown_command_action(update, context)
     else:
-        if 'kwargs' in route:
-            route['func'](update, context, **route['kwargs'])
+        if "kwargs" in route:
+            await route["func"](update, context, **route["kwargs"])
         else:
-            route['func'](update, context)
+            await route["func"](update, context)
 
 
-def get_torrents(update, context, **kwargs):
+async def get_torrents(update, context, **kwargs):
     global transmission
     torrents = []
     try:
         permission = tools.get_torrent_permission(config=cfg, chat_id=update.effective_chat.id)
     except Exception:
-        error_action(update, context)
+        await error_action(update, context)
+        return []
     if permission:
-        if permission == 'personal':
+        if permission == "personal":
             try:
-                db = DB(cfg['db']['path'])
+                db = await DB.create(cfg["db"]["path"])
             except Exception:
-                error_action(update, context)
+                await error_action(update, context)
             else:
-                db_torrents = db.get_torrent_by_uid(update.effective_chat.id)
+                db_torrents = await db.get_torrent_by_uid(update.effective_chat.id)
                 if db_torrents:
                     for db_entry in db_torrents:
                         torrent = transmission.get_torrent(db_entry[1])
                         torrents.append(torrent)
-        elif permission == 'all':
+        elif permission == "all":
             torrents = transmission.get_torrents()
     return torrents
 
 
-@run_async
 @restricted
-def download_torrent_action(update, context):
+async def download_torrent_action(update, context):
     keyboard = []
-    file = context.bot.getFile(update.message.document.file_id)
-    torrent_data = file.download_as_bytearray()
-    torrent_data = b64encode(torrent_data).decode('utf-8')
+    file = await context.bot.getFile(update.message.document.file_id)
+    torrent_data = await file.download_as_bytearray()
+    torrent_data = b64encode(torrent_data).decode("utf-8")
     context.user_data.clear()
-    context.user_data.update({'torrent_data': torrent_data})
+    context.user_data.update({"torrent_data": torrent_data})
     category = tools.get_torrent_category(config=cfg, chat_id=update.effective_chat.id)
 
-    for transmission_path in cfg['transmission']['path']:
+    for transmission_path in cfg["transmission"]["path"]:
         if category:
-            if transmission_path['category'] in category:
-                keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
+            if transmission_path["category"] in category:
+                keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            transmission_path["category"],
+                            callback_data=f'download:{transmission_path["dir"]}',
+                        )
+                    ]
+                )
         else:
-            keyboard.append([InlineKeyboardButton(transmission_path['category'], callback_data='download:{}'.format(transmission_path['dir']))])
-    keyboard.append([InlineKeyboardButton('Cancel', callback_data='download:cancel')])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        transmission_path["category"],
+                        callback_data=f'download:{transmission_path["dir"]}',
+                    )
+                ]
+            )
+    keyboard.append([InlineKeyboardButton("Cancel", callback_data="download:cancel")])
     try:
-        context.bot.sendMessage(chat_id=update.effective_chat.id,
-                                text='Which Plex category do you want to use for the downloaded torrent?',
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                                )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Which Plex category do you want to use for the downloaded torrent?",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
     except Exception:
-        error_action(update, context)
+        await error_action(update, context)
 
 
-@run_async
 @restricted
-def download_torrent_logic(update, context):
+async def download_torrent_logic(update, context):
     global transmission
-    callback_data = update.callback_query.data.replace('download:', '')
-    if callback_data == 'cancel':
-        context.bot.delete_message(message_id=update.callback_query.message.message_id,
-                                   chat_id=update.callback_query.message.chat.id
-                                   )
+    callback_data = update.callback_query.data.replace("download:", "")
+    if callback_data == "cancel":
+        await context.bot.delete_message(
+            message_id=update.callback_query.message.message_id,
+            chat_id=update.callback_query.message.chat.id,
+        )
     else:
         try:
-            result = transmission.add_torrent(torrent_data=context.user_data['torrent_data'], download_dir=callback_data)
+            result = transmission.add_torrent(
+                torrent_data=context.user_data["torrent_data"],
+                download_dir=callback_data,
+            )
         except Exception:
-            error_action(update, context)
-            context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                        chat_id=update.effective_chat.id,
-                                        text='Error adding torrent file. Try again later.')
+            await error_action(update, context)
+            await context.bot.editMessageText(
+                message_id=update.callback_query.message.message_id,
+                chat_id=update.effective_chat.id,
+                text="Error adding torrent file. Try again later.",
+            )
+            return
 
         if result:
-            context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                        chat_id=update.effective_chat.id,
-                                        text='Torrent "*{}*" added successfully'.format(result.name),
-                                        parse_mode='Markdown')
+            await context.bot.editMessageText(
+                message_id=update.callback_query.message.message_id,
+                chat_id=update.effective_chat.id,
+                text=f'Torrent "*{result.name}*" added successfully',
+                parse_mode="Markdown",
+            )
             try:
-                db = DB(cfg['db']['path'])
+                db = await DB.create(cfg["db"]["path"])
             except Exception:
-                error_action(update, context)
+                await error_action(update, context)
             else:
                 try:
-                    db.add_torrent(update.callback_query.message.chat.id, result.id)
+                    await db.add_torrent(update.callback_query.message.chat.id, result.id)
                 except Exception:
-                    error_action(update, context)
+                    await error_action(update, context)
 
-            logger.info('User {} {}({}) added a torrent file {} to the torrent client download queue with the path {}'.format(update.effective_user.first_name,
-                                                                                                                              update.effective_user.last_name,
-                                                                                                                              update.effective_user.username,
-                                                                                                                              result.name,
-                                                                                                                              callback_data
-                                                                                                                              ))
+            logger.info(
+                f"User {update.effective_user.first_name} "
+                f"{update.effective_user.last_name}({update.effective_user.username}) "
+                f"added a torrent file {result.name} to the torrent client download queue "
+                f"with the path {callback_data}"
+            )
         else:
-            logger.error('An error occurred while adding a torrent file {} to the torrent client queue with the path {} by user {} {}({})'.format(result.name,
-                                                                                                                                                  callback_data,
-                                                                                                                                                  update.effective_user.first_name,
-                                                                                                                                                  update.effective_user.last_name,
-                                                                                                                                                  update.effective_user.username
-                                                                                                                                                  ))
-            context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                        chat_id=update.effective_chat.id,
-                                        text='Error adding torrent file. Try again later.')
+            logger.error(
+                f"An error occurred while adding a torrent file {result.name} "
+                f"to the torrent client queue with the path {callback_data} "
+                f"by user {update.effective_user.first_name} "
+                f"{update.effective_user.last_name} ({update.effective_user.username})"
+            )
+            await context.bot.editMessageText(
+                message_id=update.callback_query.message.message_id,
+                chat_id=update.effective_chat.id,
+                text="Error adding torrent file. Try again later.",
+            )
 
 
-@run_async
 @restricted
-def delete_torrent_action(update, context):
+async def delete_torrent_action(update, context):
     keyboard = []
-    torrents = get_torrents(update, context)
+    torrents = await get_torrents(update, context)
     if len(torrents) > 0:
         for torrent in torrents:
-            keyboard.append([InlineKeyboardButton(torrent.name, callback_data='delete:{}'.format(torrent.id))])
-        keyboard.append([InlineKeyboardButton('Cancel', callback_data='delete:cancel')])
+            keyboard.append([InlineKeyboardButton(torrent.name, callback_data=f"delete:{torrent.id}")])
+        keyboard.append([InlineKeyboardButton("Cancel", callback_data="delete:cancel")])
         try:
-            context.bot.sendMessage(chat_id=update.effective_chat.id,
-                                    text='Which torrent do you want to delete?',
-                                    reply_markup=InlineKeyboardMarkup(keyboard)
-                                    )
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Which torrent do you want to delete?",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+            )
         except Exception:
-            error_action(update, context)
+            await error_action(update, context)
     else:
-        context.bot.sendMessage(chat_id=update.effective_chat.id,
-                                text='At the moment, there are no torrents that you can delete.'
-                                )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="At the moment, there are no torrents that you can delete.",
+        )
 
 
-@run_async
 @restricted
-def delete_torrent_logic(update, context):
+async def delete_torrent_logic(update, context):  # noqa: C901
     global transmission
-    callback_data = update.callback_query.data.replace('delete:', '')
-    if callback_data == 'cancel':
-        context.bot.delete_message(message_id=update.callback_query.message.message_id,
-                                   chat_id=update.callback_query.message.chat.id
-                                   )
-    elif 'confirm' in callback_data:
-        callback_data = callback_data.replace('confirm:', '')
+    callback_data: str = update.callback_query.data.replace("delete:", "")
+    if callback_data == "cancel":
+        await context.bot.delete_message(
+            message_id=update.callback_query.message.message_id,
+            chat_id=update.callback_query.message.chat.id,
+        )
+    elif "confirm" in callback_data:
+        callback_data = callback_data.replace("confirm:", "")
         try:
-            db = DB(cfg['db']['path'])
+            db = await DB.create(cfg["db"]["path"])
         except Exception:
-            error_action(update, context)
+            await error_action(update, context)
         else:
-
+            torrent_name = ""
             try:
                 torrent_name = transmission.get_torrent(callback_data).name
                 transmission.remove_torrent(torrent_id=callback_data)
             except Exception:
-                error_action(update, context)
-                context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                            chat_id=update.effective_chat.id,
-                                            text='An error occurred while deleting the torrent {}. Try again later.'.format(torrent_name))
+                await error_action(update, context)
+                if torrent_name != "":
+                    await context.bot.editMessageText(
+                        message_id=update.callback_query.message.message_id,
+                        chat_id=update.effective_chat.id,
+                        text=f"An error occurred while deleting the torrent {torrent_name}. Try again later.",
+                    )
             else:
                 try:
-                    db.remove_torrent_by_id(callback_data)
+                    await db.remove_torrent_by_id(callback_data)
                 except Exception:
-                    error_action(update, context)
-                context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                            chat_id=update.effective_chat.id,
-                                            text='Torrent "*{}*" was successfully deleted'.format(torrent_name),
-                                            parse_mode='Markdown')
-                logger.info('Torrent {} was successfully deleted by user {} {}({})'.format(torrent_name,
-                                                                                           update.effective_user.first_name,
-                                                                                           update.effective_user.last_name,
-                                                                                           update.effective_user.username
-                                                                                           ))
+                    await error_action(update, context)
+                await context.bot.editMessageText(
+                    message_id=update.callback_query.message.message_id,
+                    chat_id=update.effective_chat.id,
+                    text=f'Torrent "*{torrent_name}*" was successfully deleted',
+                    parse_mode="Markdown",
+                )
+                logger.info(
+                    f"Torrent {torrent_name} was successfully deleted by user "
+                    f"{update.effective_user.first_name} {update.effective_user.last_name} "
+                    f"({update.effective_user.username})"
+                )
     else:
         try:
             torrent_name = transmission.get_torrent(callback_data).name
         except Exception:
-            error_action(update, context)
+            await error_action(update, context)
         else:
-            context.bot.editMessageText(message_id=update.callback_query.message.message_id,
-                                        chat_id=update.callback_query.message.chat.id,
-                                        text='Do you realy want to delete torrent "*{}*"'.format(torrent_name),
-                                        reply_markup=make_delete_confirm_keyboard(callback_data),
-                                        parse_mode='Markdown'
-                                        )
+            await context.bot.editMessageText(
+                message_id=update.callback_query.message.message_id,
+                chat_id=update.callback_query.message.chat.id,
+                text=f'Do you realy want to delete torrent "*{torrent_name}*"',
+                reply_markup=make_delete_confirm_keyboard(callback_data),
+                parse_mode="Markdown",
+            )
 
 
-@run_async
 @restricted
-def list_torrent_action(update, context, **kwargs):
-    if 'type' in kwargs and kwargs.get('type') == 'download':
+async def list_torrent_action(update, context, **kwargs):
+    if "type" in kwargs and kwargs.get("type") == "download":
         torrents = []
-        torrent_list = get_torrents(update, context, **kwargs)
+        torrent_list = await get_torrents(update, context, **kwargs)
         for torrent in torrent_list:
-            if torrent.status == 'downloading':
+            if torrent.status == "downloading":
                 torrents.append(torrent)
     else:
-        torrents = get_torrents(update, context, **kwargs)
+        torrents = await get_torrents(update, context, **kwargs)
 
     if len(torrents) > 0:
         try:
@@ -260,272 +298,247 @@ def list_torrent_action(update, context, **kwargs):
                     try:
                         eta = str(torrent.eta)
                     except ValueError:
-                        eta = 'unknown'
-                    torrent_info = u'*{}*\r\nStatus: {}\r\nProcent: {}%\r\nSpeed: {}/s\r\nETA: {}\r\nPeers: {}'.format(torrent.name,
-                                                                                                                       torrent.status,
-                                                                                                                       round(torrent.progress, 2),
-                                                                                                                       tools.humanize_bytes(torrent.rateDownload),
-                                                                                                                       eta,
-                                                                                                                       torrent.peersSendingToUs
-                                                                                                                       )
+                        eta = "unknown"
+                    torrent_info = dedent(
+                        f"""
+                        *{torrent.name}*
+                        Status: {torrent.status}
+                        Procent: {round(torrent.progress, 2)}%
+                        Speed: {tools.humanize_bytes(torrent.rateDownload)}/s
+                        ETA: {eta}
+                        Peers: {torrent.peersSendingToUs}
+                        """
+                    )
                 else:
-                    torrent_info = u'*{}*\r\nStatus: {}\r\nSpeed: {}/s\r\nPeers: {}\r\nRatio: {}'.format(torrent.name,
-                                                                                                         torrent.status,
-                                                                                                         tools.humanize_bytes(torrent.rateUpload),
-                                                                                                         torrent.peersGettingFromUs,
-                                                                                                         torrent.uploadRatio
-                                                                                                         )
-                context.bot.sendMessage(chat_id=update.effective_chat.id,
-                                        text=torrent_info,
-                                        parse_mode='Markdown'
-                                        )
+                    torrent_info = dedent(
+                        f"""
+                        *{torrent.name}*
+                        Status: {torrent.status}
+                        Speed: {tools.humanize_bytes(torrent.rateUpload)}/s
+                        Peers: {torrent.peersGettingFromUs}
+                        Ratio: {torrent.uploadRatio}
+                        """
+                    )
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=torrent_info,
+                    parse_mode="Markdown",
+                )
         except Exception:
-            error_action(update, context)
+            await error_action(update, context)
     else:
-        context.bot.sendMessage(chat_id=update.effective_chat.id,
-                                text='The torrent list is empty')
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="The torrent list is empty")
 
 
 def make_main_keyboard():
-    custom_keyboard = [[u'{}List Downloading'.format(emojize(':arrow_down:', use_aliases=True))],
-                       [u'{}List All'.format(emojize(':page_facing_up:', use_aliases=True))],
-                       [u'{}Delete'.format(emojize(':cross_mark:', use_aliases=True))]]
+    custom_keyboard = [
+        [f'{emojize(":arrow_down:", language="alias")}List Downloading'],
+        [f'{emojize(":page_facing_up:", language="alias")}List All'],
+        [f'{emojize(":cross_mark:", language="alias")}Delete'],
+    ]
     make_markup = ReplyKeyboardMarkup(custom_keyboard, resize_keyboard=True)
     return make_markup
 
 
 def make_delete_confirm_keyboard(torrent_id):
-    keyboard_array = InlineKeyboardMarkup([[InlineKeyboardButton('Confirm', callback_data='delete:confirm:{}'.format(torrent_id))],
-                                           [InlineKeyboardButton('Cancel', callback_data='delete:cancel')]])
+    keyboard_array = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Confirm", callback_data=f"delete:confirm:{torrent_id}")],
+            [InlineKeyboardButton("Cancel", callback_data="delete:cancel")],
+        ]
+    )
     return keyboard_array
 
 
-@run_async
 @restricted
-def start_action(update, context):
-    context.bot.sendMessage(chat_id=update.effective_chat.id,
-                            text=u'Welcome. Now you can start working with the bot.',
-                            reply_markup=make_main_keyboard()
-                            )
+async def start_action(update, context):
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Welcome. Now you can start working with the bot.",
+        reply_markup=make_main_keyboard(),
+    )
 
 
-@run_async
 @restricted
-def help_action(update, context):
-    help_text = u'Send torrent file - Add a torrent to the torrent client download queue\r\n{}List Downloading - List download queue\r\n{}List All - List all torrent in the torrent client\r\n{}Delete - Complete delete torrent from torrent client and filesystem'.format(emojize(':arrow_down:', use_aliases=True),
-                                                                                                                                                                                                                                                                             emojize(':page_facing_up:', use_aliases=True),
-                                                                                                                                                                                                                                                                             emojize(':cross_mark:', use_aliases=True))
-    context.bot.sendMessage(chat_id=update.effective_chat.id,
-                            text=help_text
-                            )
+async def help_action(update, context):
+    help_text = dedent(
+        f"""
+    Send torrent file - Add a torrent to the torrent client download queue
+    {emojize(":arrow_down:", language="alias")}List Downloading - List download queue
+    {emojize(":page_facing_up:", language="alias")}List All - List all torrent in the torrent client
+    {emojize(":cross_mark:", language="alias")}Delete - Complete delete torrent from torrent client and filesystem
+    """
+    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text)
 
 
-@run_async
 @restricted
-def unknown_command_action(update, context):
-    context.bot.sendMessage(chat_id=update.effective_chat.id,
-                            text='Unknown command.')
+async def unknown_command_action(update, context):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Unknown command.")
 
 
-@run_async
 @restricted
-def unknown_doctype_action(update, context):
-    context.bot.sendMessage(chat_id=update.effective_chat.id,
-                            text='I only support working with files with the torrent extension.')
+async def unknown_doctype_action(update, context):
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="I only support working with files with the torrent extension.",
+    )
 
 
-@run_async
-def error_action(update, context):
+async def error_action(update, context):
     if update.effective_message:
-        text = "Hey. I'm sorry to inform you that an error happened while I tried to handle your update. " \
-               "My developer(s) will be notified."
-        update.effective_message.reply_text(text)
-        trace = ''.join(traceback.format_tb(sys.exc_info()[2]))
-        payload = ''
+        text = (
+            "Hey. I'm sorry to inform you that an error happened while I tried to handle your update. "
+            "My developer(s) will be notified."
+        )
+        await update.effective_message.reply_text(text)
+        trace = "".join(traceback.format_tb(sys.exc_info()[2]))
+        payload = ""
         if update.effective_user:
-            payload += f' with the user {(update.effective_user.id, update.effective_user.first_name)}'
+            payload += f" with the user {(update.effective_user.id, update.effective_user.first_name)}"
         if update.effective_chat:
-            payload += f' within the chat <i>{update.effective_chat.title}</i>'
+            payload += f" within the chat <i>{update.effective_chat.title}</i>"
         if update.effective_chat.username:
-            payload += f' (@{update.effective_chat.username})'
-        text = f"The error {context.error} happened{payload}. The full traceback:\n\n{trace}"
-    logger.error(text)
+            payload += f" (@{update.effective_chat.username})"
+        text = f"The error happened{payload}. The full traceback:\n\n{trace}"
+        logger.error(text)
 
 
-class scheduled_checker_thread(Thread):
-    def __init__(self, check_period):
-        Thread.__init__(self)
-        self.kill_received = False
-        self.check_period = check_period
-
-    def run(self):
-        while not self.kill_received:
-            check_torrent_download_status()
-            time.sleep(self.check_period)
-
-
-def has_live_threads(threads):
-    return True in [t.is_alive() for t in threads]
-
-
-def start_bot():
-    updater.start_polling()
-
-
-def check_torrent_download_status():
+async def check_torrent_download_status(context):  # noqa: C901
     global transmission
     try:
-        db = DB(cfg['db']['path'])
+        db = await DB.create(cfg["db"]["path"])
     except Exception as exc:
-        logger.error(('{}({})'.format(type(exc).__name__, exc)))
+        logger.error(f"{type(exc).__name__}({exc})")
     else:
         try:
-            torrents = db.list_uncomplete_torrents()
+            torrents = await db.list_uncomplete_torrents()
         except Exception as exc:
-            logger.error(('{}({})'.format(type(exc).__name__, exc)))
+            logger.error(f"{type(exc).__name__}({exc})")
         else:
             if torrents:
                 for torrent in torrents:
                     try:
                         task = transmission.get_torrent(torrent[1])
                     except Exception:
-                        db.remove_torrent_by_id(torrent[1])
+                        await db.remove_torrent_by_id(torrent[1])
                     else:
                         try:
                             if task.doneDate:
-                                db.complete_torrent(torrent[1])
+                                await db.complete_torrent(torrent[1])
                         except Exception as exc:
-                            logger.error(('{}({})'.format(type(exc).__name__, exc)))
+                            logger.error(f"{type(exc).__name__}({exc})")
                         else:
                             if task.doneDate:
-                                response = u'Torrent "*{}*" was successfully downloaded'.format(task.name)
-                                global updater
+                                response = f'Torrent "*{task.name}*" was successfully downloaded'
                                 try:
+                                    notify_flag = False
                                     try:
-                                        notify_flag = cfg['telegram']['allow_chat'].get(torrent[0], True)
+                                        chat = cfg["telegram"]["allow_chat"].get(torrent[0])
                                     except Exception:
-                                        notify_flag = True
+                                        notify_flag = False
                                     else:
+                                        if chat["notify"] == "personal":
+                                            notify_flag = True
                                         if notify_flag:
-                                            updater.bot.sendMessage(chat_id=torrent[0],
-                                                                    text=response,
-                                                                    parse_mode='Markdown'
-                                                                    )
+                                            context.bot.send_message(
+                                                chat_id=torrent[0],
+                                                text=response,
+                                                parse_mode="Markdown",
+                                            )
 
-                                    notify_about_all = [chat["telegram_id"] for chat in cfg['telegram']['allow_chat'] if chat['notify_all']]
+                                    notify_about_all = [
+                                        chat["telegram_id"]
+                                        for chat in cfg["telegram"]["allow_chat"]
+                                        if chat["notify"] == "all"
+                                    ]
                                     if notify_about_all:
                                         for telegram_id in notify_about_all:
-                                            updater.bot.sendMessage(chat_id=telegram_id,
-                                                                    text=response,
-                                                                    parse_mode='Markdown'
-                                                                    )
+                                            await context.bot.send_message(
+                                                chat_id=telegram_id,
+                                                text=response,
+                                                parse_mode="Markdown",
+                                            )
                                 except Exception as exc:
-                                    logger.error(('{}({})'.format(type(exc).__name__, exc)))
+                                    logger.error(f"{type(exc).__name__}({exc})")
 
 
 def main():
     global cfg
     global transmission
-    global updater
     global logger
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', required=True,
-                        help='configuration file')
-    parser.add_argument('--debug', action='store_true')
+    parser.add_argument("-c", "--config", required=True, help="configuration file")
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     logger = tools.init_log(debug=args.debug)
 
-    if not path.isfile(args.config):
-        print('Transmission telegram bot configuration file {} not found'.format(args.config))
-        logger.error('Transmission telegram bot configuration file {} not found'.format(args.config))
+    if not Path(args.config).is_file():
+        logger.error(f"Transmission telegram bot configuration file {args.config} not found")
         sys.exit()
 
-    logger.info('Starting transmission telegram bot')
+    logger.info("Starting transmission telegram bot")
 
     try:
         cfg = tools.get_config(args.config)
     except Exception as exc:
-        logger.error('Config file error: {}'.format(exc))
+        logger.error(f"Config file error: {exc}")
         sys.exit(1)
 
     try:
-        transmission = Transmission(address=cfg['transmission']['address'],
-                                    port=cfg['transmission']['port'],
-                                    user=cfg['transmission']['user'],
-                                    password=cfg['transmission']['password'],
-                                    debug=args.debug)
+        transmission = Transmission(
+            address=cfg["transmission"]["address"],
+            port=cfg["transmission"]["port"],
+            user=cfg["transmission"]["user"],
+            password=cfg["transmission"]["password"],
+        )
     except Exception as exc:
-        logger.error('Transmission connection error: {}'.format(exc))
+        logger.error(f"Transmission connection error: {exc}")
 
-    try:
-        DB(cfg['db']['path'])
-    except Exception as exc:
-        logger.error('SQLite DB connection error: {}'.format(exc))
+    application = ApplicationBuilder().token(cfg["telegram"]["token"])
 
-    if 'proxy' in cfg['telegram']:
-        REQUEST_KWARGS = {
-            'proxy_url': cfg['telegram']['proxy']['url'],
-            'urllib3_proxy_kwargs': {
-                'username': cfg['telegram']['proxy']['username'],
-                'password': cfg['telegram']['proxy']['password'],
-            }
-        }
-        updater = Updater(token=cfg['telegram']['token'], use_context=True, request_kwargs=REQUEST_KWARGS)
-    else:
-        updater = Updater(token=cfg['telegram']['token'], use_context=True)
+    if "proxy" in cfg["telegram"]:
+        request_instance = request.HTTPXRequest(proxy_url=cfg["telegram"]["proxy"]["url"])
+        application.request(request_instance).get_updates_request(request_instance)
 
-    dp = updater.dispatcher
+    application = application.build()
+    job_queue = application.job_queue
 
-    start_handler = CommandHandler('start', start_action)
-    help_handler = CommandHandler('help', help_action)
-    download_torrent_handler = MessageHandler(Filters.document.mime_type("application/x-bittorrent"), download_torrent_action)
-    unknown_doctype_handler = MessageHandler(~ Filters.document.mime_type("application/x-bittorrent"), unknown_doctype_action)
-    text_message_handler = MessageHandler(Filters.text, text_message_action)
-    unknown_command_handler = MessageHandler(Filters.command, unknown_command_action)
+    start_handler = CommandHandler("start", start_action)
+    help_handler = CommandHandler("help", help_action)
+    download_torrent_handler = MessageHandler(
+        filters.Document.MimeType("application/x-bittorrent"), download_torrent_action
+    )
+    unknown_doctype_handler = MessageHandler(
+        ~filters.Document.MimeType("application/x-bittorrent"), unknown_doctype_action
+    )
+    text_message_handler = MessageHandler(filters.TEXT, text_message_action)
+    unknown_command_handler = MessageHandler(filters.COMMAND, unknown_command_action)
 
-    dp.add_handler(CallbackQueryHandler(callback=download_torrent_logic, pattern='.*download.*'))
-    dp.add_handler(CallbackQueryHandler(callback=delete_torrent_logic, pattern='.*delete.*'))
-    dp.add_handler(start_handler)
-    dp.add_handler(help_handler)
-    dp.add_handler(download_torrent_handler)
-    dp.add_handler(text_message_handler)
-    dp.add_handler(unknown_command_handler)
-    dp.add_handler(unknown_doctype_handler)
-    dp.add_error_handler(error_action)
+    application.add_handler(CallbackQueryHandler(callback=download_torrent_logic, pattern=".*download.*"))
+    application.add_handler(CallbackQueryHandler(callback=delete_torrent_logic, pattern=".*delete.*"))
+    application.add_handler(start_handler)
+    application.add_handler(help_handler)
+    application.add_handler(download_torrent_handler)
+    application.add_handler(text_message_handler)
+    application.add_handler(unknown_command_handler)
+    application.add_handler(unknown_doctype_handler)
+    application.add_error_handler(error_action)
 
-    if 'schedule' in cfg:
-        if 'check_period' in cfg['schedule']:
-            check_period = int(cfg['schedule']['check_period'])
+    if "schedule" in cfg:
+        if "check_period" in cfg["schedule"]:
+            check_period = int(cfg["schedule"]["check_period"])
         else:
             check_period = 60
     else:
         check_period = 60
 
-    t1 = Thread(target=start_bot)
-    t1.start()
-
-    t2 = scheduled_checker_thread(check_period)
-    t2.start()
-
-    threads = [t1, t2]
-
-    while has_live_threads(threads):
-        try:
-            [t.join(1) for t in threads if t is not None and t.is_alive()]
-        except KeyboardInterrupt:
-            print("Sending kill to threads...")
-            for t in threads:
-                t.kill_received = True
-            try:
-                updater.stop()
-            except Exception as exc:
-                logger.error('%s' % ('{}({})'.format(type(exc).__name__, exc)))
-                continue
-    print('Exited')
-    sys.exit(0)
+    if job_queue:
+        job_queue.run_repeating(check_torrent_download_status, interval=check_period, first=10)
+    application.run_polling()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

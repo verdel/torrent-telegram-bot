@@ -29,6 +29,11 @@ select = ["F", "E", "W", "C90",
           "ISC", "T20", "Q", "PTH"]
 
 ignore = ["A003"]
+line-length = 120
+
+[tool.black]
+target-version = ['py311']
+line-length = 120
 
 [tool.pyright]
 reportUnnecessaryTypeIgnoreComment="warning"

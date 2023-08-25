@@ -1,82 +1,92 @@
-# -*- coding: utf-8 -*-
-import sqlite3
+from typing import Any
+
+import aiosqlite
 
 
-class DBException(RuntimeError):
+class DBExceptionError(RuntimeError):
     """An SQLite DB error occured."""
 
 
 class DB(object):
-    def __init__(self, db_path):
-        try:
-            self.conn = sqlite3.connect(db_path)
-            self.cur = self.conn.cursor()
-        except Exception as exc:
-            raise DBException(exc)
-        else:
-            self.create_table()
+    def __init__(self):
+        self.conn: aiosqlite.Connection
 
-    def create_table(self):
-        sql = 'CREATE TABLE IF NOT EXISTS torrent (uid VARCHAR, torrent_id VARCHAR, complete BOOLEAN)'
+    @classmethod
+    async def create(cls, db_path: str):
+        self = cls()
         try:
-            self.cur.execute(sql)
+            self.conn = await aiosqlite.connect(db_path)
         except Exception as exc:
-            self.cur.rollback()
-            raise DBException(exc)
+            raise DBExceptionError(exc) from exc
         else:
-            self.conn.commit()
+            await self.create_table()
+        return self
 
-    def add_torrent(self, uid, torrent_id):
-        sql = 'INSERT INTO torrent (uid, torrent_id, complete) VALUES (?,?,0)'
+    async def create_table(self) -> None:
+        sql = "CREATE TABLE IF NOT EXISTS torrent (uid VARCHAR, torrent_id VARCHAR, complete BOOLEAN)"
         try:
-            self.cur.execute(sql, (uid, torrent_id))
+            await self.conn.execute(sql)
         except Exception as exc:
-            self.conn.rollback()
-            raise DBException(exc)
+            await self.conn.rollback()
+            raise DBExceptionError(exc) from exc
         else:
-            self.conn.commit()
+            await self.conn.commit()
 
-    def list_uncomplete_torrents(self):
-        sql = 'SELECT * FROM torrent WHERE complete=0'
+    async def add_torrent(self, uid, torrent_id: str) -> None:
+        sql = "INSERT INTO torrent (uid, torrent_id, complete) VALUES (?,?,0)"
         try:
-            data = self.cur.execute(sql).fetchall()
+            await self.conn.execute(sql, (uid, torrent_id))
         except Exception as exc:
-            raise DBException(exc)
+            await self.conn.rollback()
+            raise DBExceptionError(exc) from exc
         else:
-            return data
+            await self.conn.commit()
 
-    def get_torrent_by_uid(self, uid):
-        sql = 'SELECT * FROM torrent WHERE uid = ?'
+    async def list_uncomplete_torrents(self) -> Any:
+        sql = "SELECT * FROM torrent WHERE complete=0"
         try:
-            data = self.cur.execute(sql, (uid,)).fetchall()
+            cursor = await self.conn.execute(sql)
+            data = await cursor.fetchall()
+            await cursor.close()
         except Exception as exc:
-            raise DBException(exc)
+            raise DBExceptionError(exc) from exc
         else:
             return data
 
-    def complete_torrent(self, torrent_id):
-        sql = 'UPDATE torrent SET complete=1 WHERE torrent_id = ?'
+    async def get_torrent_by_uid(self, uid: str) -> Any:
+        sql = "SELECT * FROM torrent WHERE uid = ?"
         try:
-            self.cur.execute(sql, (torrent_id,))
+            cursor = await self.conn.execute(sql, (uid,))
+            data = await cursor.fetchall()
+            await cursor.close()
         except Exception as exc:
-            self.cur.rollback()
-            raise DBException(exc)
+            raise DBExceptionError(exc) from exc
         else:
-            self.conn.commit()
+            return data
 
-    def remove_torrent_by_id(self, torrent_id):
-        sql = 'DELETE FROM torrent WHERE torrent_id = ?'
+    async def complete_torrent(self, torrent_id: str) -> None:
+        sql = "UPDATE torrent SET complete=1 WHERE torrent_id = ?"
         try:
-            self.cur.execute(sql, (torrent_id,))
+            await self.conn.execute(sql, (torrent_id,))
         except Exception as exc:
-            self.cur.rollback()
-            raise DBException(exc)
+            await self.conn.rollback()
+            raise DBExceptionError(exc) from exc
         else:
-            self.conn.commit()
-            self.vacuum_db()
+            await self.conn.commit()
 
-    def vacuum_db(self):
+    async def remove_torrent_by_id(self, torrent_id: str) -> None:
+        sql = "DELETE FROM torrent WHERE torrent_id = ?"
         try:
-            self.conn.execute('VACUUM')
+            await self.conn.execute(sql, (torrent_id,))
         except Exception as exc:
-            raise DBException(exc)
+            await self.conn.rollback()
+            raise DBExceptionError(exc) from exc
+        else:
+            await self.conn.commit()
+            await self.vacuum_db()
+
+    async def vacuum_db(self) -> None:
+        try:
+            await self.conn.execute("VACUUM")
+        except Exception as exc:
+            raise DBExceptionError(exc) from exc
