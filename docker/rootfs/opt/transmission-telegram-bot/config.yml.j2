@@ -4,8 +4,7 @@ telegram:
 {% for item in ALLOW_CHAT|env_json %}
         - telegram_id: {{ item['telegram_id'] }}
           torrent_permission: '{{ item['torrent_permission'] }}'
-          notify: {{ item['notify'] | default(false) }}
-          notify_all: {{ item['notify_all'] | default(false) }}
+          notify: {{ item['notify'] | default("personal") }}
           {% if 'allow_category' in item %}
           allow_category: {{ item['allow_category'] }}
           {% endif %}
