@@ -1,5 +1,0 @@
-emoji
-pysocks
-python-telegram-bot==12.7
-PyYAML
-transmissionrpc
