@@ -37,3 +37,4 @@ line-length = 120
 
 [tool.pyright]
 reportUnnecessaryTypeIgnoreComment="warning"
+exclude = ["docker"]
