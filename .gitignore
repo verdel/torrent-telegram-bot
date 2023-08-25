@@ -140,3 +140,5 @@ dmypy.json
 
 conf/*.db
 conf/config.yml
+.venv
+.vscode
