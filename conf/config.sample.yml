@@ -7,16 +7,18 @@ telegram:
       allow_category:
         - Movies
         - Series
-      notify_all: True
+      notify: all
 
     - telegram_id: 222222222
       torrent_permission: "personal"
-      notify: True
+      notify: personal
+
+    - telegram_id: 333333333
+      torrent_permission: "personal"
+      notify: "none"
 
   proxy:
-    url: socks5://socks.com:55555
-    username: username
-    password: password
+    url: socks5://username:password@socks.com:55555
 
 transmission:
   address: transmission.local
