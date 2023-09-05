@@ -37,3 +37,4 @@ db:
 
 schedule:
   check_period: 10
+  max_instances: 1

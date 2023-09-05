@@ -532,11 +532,18 @@ def main():
             check_period = int(cfg["schedule"]["check_period"])
         else:
             check_period = 60
+        if "max_instances" in cfg["schedule"]:
+            max_instances = int(cfg["schedule"]["max_instances"])
+        else:
+            max_instances = 1
     else:
         check_period = 60
+        max_instances = 1
 
     if job_queue:
-        job_queue.run_repeating(check_torrent_download_status, interval=check_period, first=10)
+        job_queue.run_repeating(
+            check_torrent_download_status, interval=check_period, first=10, job_kwargs={"max_instances": max_instances}
+        )
     application.run_polling()
 
 
