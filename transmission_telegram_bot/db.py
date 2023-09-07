@@ -90,3 +90,9 @@ class DB(object):
             await self.conn.execute("VACUUM")
         except Exception as exc:
             raise DBExceptionError(exc) from exc
+
+    async def close(self) -> None:
+        try:
+            await self.conn.close()
+        except Exception as exc:
+            raise DBExceptionError(exc) from exc
