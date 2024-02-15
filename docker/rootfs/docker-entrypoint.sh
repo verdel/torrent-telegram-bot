@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -f /opt/transmission-telegram-bot/config.yml.j2 ];then
-    j2 --filter /opt/j2cli/env_json.py -o /opt/transmission-telegram-bot/config.yml /opt/transmission-telegram-bot/config.yml.j2
+    jinjanate -o /opt/transmission-telegram-bot/config.yml --quiet /opt/transmission-telegram-bot/config.yml.j2
     rm /opt/transmission-telegram-bot/config.yml.j2
 fi
 

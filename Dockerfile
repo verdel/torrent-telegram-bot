@@ -1,6 +1,6 @@
-FROM python:3.11 as builder
+FROM python:3.12 as builder
 
-RUN pip install poetry==1.6.1
+RUN pip install poetry==1.7.1
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -13,9 +13,9 @@ COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --without dev --no-root
 
-FROM python:3.11-slim as runtime
+FROM python:3.12-slim as runtime
 
-RUN pip install j2cli
+RUN pip install jinjanator jinjanator-plugin-ansible
 
 ENV VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH"
