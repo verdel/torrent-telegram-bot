@@ -39,7 +39,7 @@ def init_log(debug: bool = False):
 
 
 def get_config(path: str):
-    with Path(path).open("r") as ymlfile:
+    with Path(path).open(mode="r", encoding="utf-8") as ymlfile:
         cfg = yaml.safe_load(ymlfile)
     return cfg
 
