@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "transmission-telegram-bot"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["Vadim Aleksandrov <valeksandrov@me.com>"]
 readme = "README.md"
@@ -10,8 +10,8 @@ python = "^3.12"
 emoji = "^2.8.0"
 python-telegram-bot = {extras = ["socks", "job-queue"], version = "^20.4"}
 PyYAML = "^6.0.1"
-transmissionrpc = "^0.11"
 aiosqlite = "^0.19.0"
+transmission-rpc = "^7.0.3"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -24,12 +24,14 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
 select = ["F", "E", "W", "C90",
           "I", "N", "S", "B", "A",
           "ISC", "T20", "Q", "PTH"]
-
 ignore = ["A003"]
-line-length = 120
+
 
 [tool.black]
 target-version = ['py312']
