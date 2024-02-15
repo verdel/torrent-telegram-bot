@@ -142,3 +142,4 @@ conf/*.db
 conf/config.yml
 .venv
 .vscode
+.ruff_cache
