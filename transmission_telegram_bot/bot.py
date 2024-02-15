@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import argparse
 import sys
 import traceback
@@ -387,11 +384,12 @@ async def unknown_doctype_action(update, context):
 
 
 async def error_action(update, context):
+    if update is None:
+        logger.error(context.error)
+        return
+
     if update.effective_message:
-        text = (
-            "Hey. I'm sorry to inform you that an error happened while I tried to handle your update. "
-            "My developer(s) will be notified."
-        )
+        text = "Hey. I'm sorry to inform you that an error happened while I tried to handle your update."
         await update.effective_message.reply_text(text)
         trace = "".join(traceback.format_tb(sys.exc_info()[2]))
         payload = ""

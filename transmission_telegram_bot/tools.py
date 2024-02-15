@@ -22,6 +22,7 @@ def init_log(debug: bool = False):
         consolelog_level = logging.INFO
 
     logger = logging.getLogger("transmission-telegram-bot")
+
     logger.setLevel(logging.DEBUG)
 
     # create console handler with a higher log level
@@ -35,6 +36,8 @@ def init_log(debug: bool = False):
     # add the handlers to logger
     logger.addHandler(consolelog)
 
+    # disable logging to stdout for updater module (errors will be handled by a custom handler)
+    logging.getLogger("telegram.ext.Updater").addHandler(logging.NullHandler())
     return logger
 
 
