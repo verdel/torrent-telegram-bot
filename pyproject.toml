@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "transmission-telegram-bot"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Vadim Aleksandrov <valeksandrov@me.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 emoji = "^2.8.0"
 python-telegram-bot = {extras = ["socks", "job-queue"], version = "^20.4"}
 PyYAML = "^6.0.1"
@@ -32,7 +32,7 @@ ignore = ["A003"]
 line-length = 120
 
 [tool.black]
-target-version = ['py311']
+target-version = ['py312']
 line-length = 120
 
 [tool.pyright]
