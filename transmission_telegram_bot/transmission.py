@@ -1,6 +1,4 @@
-from typing import Any
-
-from transmission_rpc import Client
+from transmission_rpc import Client, Torrent
 
 
 class Transmission(object):
@@ -23,19 +21,19 @@ class Transmission(object):
         """Construct transmission client instance"""
         return Client(host=self.address, port=self.port, username=self.user, password=self.password)
 
-    def get_torrents(self) -> list[Any]:
+    def get_torrents(self) -> list[Torrent]:
         """Get all torrents from transmission"""
         return self.tc.get_torrents()
 
-    def get_torrent(self, torrent_id: str) -> Any:
+    def get_torrent(self, torrent_id: int) -> Torrent:
         """Get torrent by torrent id"""
         return self.tc.get_torrent(torrent_id)
 
-    def remove_torrent(self, torrent_id: str, delete_data: bool = True):
+    def remove_torrent(self, torrent_id: int, delete_data: bool = True):
         """Remove torrent by torrent id"""
         return self.tc.remove_torrent(ids=torrent_id, delete_data=delete_data)
 
-    def add_torrent(self, torrent_data: str = "", **kwargs):
+    def add_torrent(self, torrent_data: str = "", **kwargs) -> Torrent:
         """Add torrent to transmission"""
         if "download_dir" in kwargs:
             return self.tc.add_torrent(torrent=torrent_data, download_dir=kwargs.get("download_dir"))

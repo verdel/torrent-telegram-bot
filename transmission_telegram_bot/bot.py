@@ -87,7 +87,7 @@ async def get_torrents(update, context, **kwargs):
                 db_torrents = await db.get_torrent_by_uid(update.effective_chat.id)
                 if db_torrents:
                     for db_entry in db_torrents:
-                        torrent = transmission.get_torrent(db_entry[1])
+                        torrent = transmission.get_torrent(int(db_entry[1]))
                         torrents.append(torrent)
         elif permission == "all":
             torrents = transmission.get_torrents()
@@ -172,7 +172,7 @@ async def download_torrent_logic(update, context):
                 await error_action(update, context)
             else:
                 try:
-                    await db.add_torrent(update.callback_query.message.chat.id, result.id)
+                    await db.add_torrent(update.callback_query.message.chat.id, str(result.id))
                 except Exception:
                     await error_action(update, context)
 
@@ -237,8 +237,8 @@ async def delete_torrent_logic(update, context):  # noqa: C901
         else:
             torrent_name = ""
             try:
-                torrent_name = transmission.get_torrent(callback_data).name
-                transmission.remove_torrent(torrent_id=callback_data)
+                torrent_name = transmission.get_torrent(int(callback_data)).name
+                transmission.remove_torrent(torrent_id=int(callback_data))
             except Exception:
                 await error_action(update, context)
                 if torrent_name != "":
@@ -265,7 +265,7 @@ async def delete_torrent_logic(update, context):  # noqa: C901
                 )
     else:
         try:
-            torrent_name = transmission.get_torrent(callback_data).name
+            torrent_name = transmission.get_torrent(int(callback_data)).name
         except Exception:
             await error_action(update, context)
         else:
@@ -292,7 +292,7 @@ async def list_torrent_action(update, context, **kwargs):
     if len(torrents) > 0:
         try:
             for torrent in torrents:
-                if not torrent.doneDate:
+                if not torrent.done_date:
                     try:
                         eta = str(torrent.eta)
                     except ValueError:
@@ -302,9 +302,9 @@ async def list_torrent_action(update, context, **kwargs):
                         *{torrent.name}*
                         Status: {torrent.status}
                         Procent: {round(torrent.progress, 2)}%
-                        Speed: {tools.humanize_bytes(torrent.rateDownload)}/s
+                        Speed: {tools.humanize_bytes(torrent.rate_download)}/s
                         ETA: {eta}
-                        Peers: {torrent.peersSendingToUs}
+                        Peers: {torrent.peers_sending_to_us}
                         """
                     )
                 else:
@@ -312,9 +312,9 @@ async def list_torrent_action(update, context, **kwargs):
                         f"""
                         *{torrent.name}*
                         Status: {torrent.status}
-                        Speed: {tools.humanize_bytes(torrent.rateUpload)}/s
-                        Peers: {torrent.peersGettingFromUs}
-                        Ratio: {torrent.uploadRatio}
+                        Speed: {tools.humanize_bytes(torrent.rate_upload)}/s
+                        Peers: {torrent.peers_getting_from_us}
+                        Ratio: {torrent.upload_ratio}
                         """
                     )
                 await context.bot.send_message(
@@ -418,17 +418,17 @@ async def check_torrent_download_status(context):  # noqa: C901
         if torrents:
             for torrent in torrents:
                 try:
-                    task = transmission.get_torrent(torrent[1])
+                    task = transmission.get_torrent(int(torrent[1]))
                 except Exception:
                     await db.remove_torrent_by_id(torrent[1])
                 else:
                     try:
-                        if task.doneDate:
+                        if task.done_date:
                             await db.complete_torrent(torrent[1])
                     except Exception as exc:
                         logger.error(f"{type(exc).__name__}({exc})")
                     else:
-                        if task.doneDate:
+                        if task.done_date:
                             response = f'Torrent "*{task.name}*" was successfully downloaded'
                             try:
                                 notify_flag = False
