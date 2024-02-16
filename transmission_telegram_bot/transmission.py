@@ -33,9 +33,10 @@ class Transmission(object):
         """Remove torrent by torrent id"""
         return self.tc.remove_torrent(ids=torrent_id, delete_data=delete_data)
 
-    def add_torrent(self, torrent_data: str = "", **kwargs) -> Torrent:
+    def add_torrent(self, torrent_data: bytes, **kwargs) -> Torrent:
         """Add torrent to transmission"""
         if "download_dir" in kwargs:
-            return self.tc.add_torrent(torrent=torrent_data, download_dir=kwargs.get("download_dir"))
+            torrent = self.tc.add_torrent(torrent=torrent_data, download_dir=kwargs.get("download_dir"))
+            return torrent
         else:
             return self.tc.add_torrent(torrent=torrent_data)

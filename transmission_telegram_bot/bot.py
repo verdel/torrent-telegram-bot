@@ -1,12 +1,13 @@
 import argparse
 import sys
 import traceback
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from functools import wraps
 from pathlib import Path
 from textwrap import dedent
 from typing import Coroutine
 
+import sentry_sdk
 from emoji import emojize
 from telegram import (
     InlineKeyboardButton,
@@ -23,6 +24,7 @@ from telegram.ext import (
 )
 
 import transmission_telegram_bot.tools as tools
+from transmission_telegram_bot import _version
 from transmission_telegram_bot.db import DB
 from transmission_telegram_bot.transmission import Transmission
 
@@ -147,7 +149,7 @@ async def download_torrent_logic(update, context):
     else:
         try:
             result = transmission.add_torrent(
-                torrent_data=context.user_data["torrent_data"],
+                torrent_data=b64decode(context.user_data["torrent_data"]),
                 download_dir=callback_data,
             )
         except Exception:
@@ -394,9 +396,7 @@ async def error_action(update, context):
         trace = "".join(traceback.format_tb(sys.exc_info()[2]))
         payload = ""
         if update.effective_user:
-            payload += f" with the user {(update.effective_user.id, update.effective_user.first_name)}"
-        if update.effective_chat:
-            payload += f" within the chat <i>{update.effective_chat.title}</i>"
+            payload += f" with the user {(update.effective_user.id, update.effective_user.first_name, update.effective_user.last_name)}"
         if update.effective_chat.username:
             payload += f" (@{update.effective_chat.username})"
         text = f"The error happened{payload}. The full traceback:\n\n{trace}"
@@ -486,6 +486,14 @@ def main():
     except Exception as exc:
         logger.error(f"Config file error: {exc}")
         sys.exit(1)
+
+    if "sentry" in cfg:
+        sentry_sdk.init(
+            dsn=cfg["sentry"]["dsn"],
+            environment=cfg["sentry"]["environment"],
+            release=_version.__version__,
+            attach_stacktrace=True,
+        )
 
     try:
         transmission = Transmission(

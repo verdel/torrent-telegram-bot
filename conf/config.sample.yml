@@ -38,3 +38,7 @@ db:
 schedule:
   check_period: 10
   max_instances: 1
+
+sentry:
+  dsn: https://74097a32c14840acaa22410e4ca171c0@o447962.ingest.sentry.io/4504037633556480
+  environment: testing

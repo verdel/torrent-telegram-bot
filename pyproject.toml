@@ -12,7 +12,7 @@ python-telegram-bot = {extras = ["socks", "job-queue"], version = "^20.4"}
 PyYAML = "^6.0.1"
 aiosqlite = "^0.19.0"
 transmission-rpc = "^7.0.3"
-
+sentry-sdk = "^1.40.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.0.0"
@@ -30,7 +30,7 @@ line-length = 120
 select = ["F", "E", "W", "C90",
           "I", "N", "S", "B", "A",
           "ISC", "T20", "Q", "PTH"]
-ignore = ["A003"]
+ignore = ["A003", "C901", "E501"]
 
 
 [tool.black]
@@ -40,3 +40,5 @@ line-length = 120
 [tool.pyright]
 reportUnnecessaryTypeIgnoreComment="warning"
 exclude = ["docker"]
+
+[tool.poetry_bumpversion.file."transmission_telegram_bot/_version.py"]
