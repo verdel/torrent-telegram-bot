@@ -32,3 +32,11 @@ db:
 schedule:
     check_period: {{ DOWNLOAD_STATUS_CHECK_PERIOD }}
     max_instances: {{ DOWNLOAD_STATUS_CHECK_MAX_INSTANCES }}
+
+{% if SENTRY_DSN is defined %}
+sentry:
+    dsn: {{ SENTRY_DSN }}
+    {% if SENTRY_ENVIRONMENT is defined %}
+    environment: {{ SENTRY_ENVIRONMENT }}
+    {% endif %}
+{% endif %}
