@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "transmission-telegram-bot"
+name = "torrent-telegram-bot"
 version = "0.1.2"
 description = ""
 authors = ["Vadim Aleksandrov <valeksandrov@me.com>"]
@@ -13,9 +13,9 @@ PyYAML = "^6.0.1"
 aiosqlite = "^0.19.0"
 transmission-rpc = "^7.0.3"
 sentry-sdk = "^1.40.4"
+qbittorrent-api = "^2024.3.60"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.0.0"
 ruff = "^0.2.0"
 pyright = "^1.1.324"
 
@@ -25,20 +25,24 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
+indent-width = 4
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "C90",
           "I", "N", "S", "B", "A",
           "ISC", "T20", "Q", "PTH"]
-ignore = ["A003", "C901", "E501"]
+ignore = ["A003", "C901", "E501", "ISC001"]
 
 
-[tool.black]
-target-version = ['py312']
-line-length = 120
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.pyright]
 reportUnnecessaryTypeIgnoreComment="warning"
 exclude = ["docker"]
 
-[tool.poetry_bumpversion.file."transmission_telegram_bot/_version.py"]
+[tool.poetry_bumpversion.file."torrent_telegram_bot/_version.py"]
