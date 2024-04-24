@@ -267,6 +267,7 @@ async def delete_torrent_logic(update, context):  # noqa: C901
                 )
     else:
         try:
+            torrent_name = ""
             torrent = client.get_torrent(callback_data)
             if torrent is not None:
                 torrent_name = torrent.name
