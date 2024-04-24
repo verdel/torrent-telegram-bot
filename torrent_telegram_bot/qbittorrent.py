@@ -45,7 +45,9 @@ class Qbittorrent:
                 status=torrent.state,
                 progress=torrent.progress * 100,
                 download_speed=torrent.dlspeed,
-                num_seeds=torrent.num_seeds + torrent.num_leechs,
+                upload_speed=torrent.upspeed,
+                num_seeds_download=torrent.num_seeds + torrent.num_leechs,
+                num_seeds_upload=torrent.num_seeds + torrent.num_leechs,
                 ratio=torrent.ratio,
             )
             for torrent in torrents
@@ -64,7 +66,9 @@ class Qbittorrent:
                     status=torrent.state,
                     progress=torrent.progress * 100,
                     download_speed=torrent.dlspeed,
-                    num_seeds=torrent.num_seeds + torrent.num_leechs,
+                    upload_speed=torrent.upspeed,
+                    num_seeds_download=torrent.num_seeds + torrent.num_leechs,
+                    num_seeds_upload=torrent.num_seeds + torrent.num_leechs,
                     ratio=torrent.ratio,
                 )
 
@@ -105,6 +109,8 @@ class Qbittorrent:
             status=torrent.state,
             progress=torrent.progress * 100,
             download_speed=torrent.dlspeed,
-            num_seeds=torrent.num_seeds + torrent.num_leechs,
+            upload_speed=torrent.upspeed,
+            num_seeds_download=torrent.num_seeds + torrent.num_leechs,
+            num_seeds_upload=torrent.num_seeds + torrent.num_leechs,
             ratio=torrent.ratio,
         )

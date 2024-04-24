@@ -297,7 +297,7 @@ async def list_torrent_action(update, context, **kwargs):
     if len(torrents) > 0:
         try:
             for torrent in torrents:
-                if torrent.done_date == datetime.fromtimestamp(0):
+                if torrent.done_date is None or torrent.done_date == datetime.fromtimestamp(0):
                     try:
                         eta = str(torrent.eta)
                     except ValueError:
@@ -309,7 +309,7 @@ async def list_torrent_action(update, context, **kwargs):
                         Procent: {round(torrent.progress, 2)}%
                         Speed: {tools.humanize_bytes(torrent.download_speed)}/s
                         ETA: {eta}
-                        Peers: {torrent.num_seeds}
+                        Peers: {torrent.num_seeds_download}
                         """
                     )
                 else:
@@ -317,8 +317,8 @@ async def list_torrent_action(update, context, **kwargs):
                         f"""
                         *{torrent.name}*
                         Status: {torrent.status}
-                        Speed: {tools.humanize_bytes(torrent.download_speed)}/s
-                        Peers: {torrent.num_seeds}
+                        Speed: {tools.humanize_bytes(torrent.upload_speed)}/s
+                        Peers: {torrent.num_seeds_upload}
                         Ratio: {torrent.ratio}
                         """
                     )
@@ -426,12 +426,20 @@ async def check_torrent_download_status(context):  # noqa: C901
                     await db.remove_torrent_by_id(torrent[1])
                 else:
                     try:
-                        if task is not None and task.done_date != datetime.fromtimestamp(0):
+                        if (
+                            task is not None
+                            and task.done_date is not None
+                            and task.done_date != datetime.fromtimestamp(0)
+                        ):
                             await db.complete_torrent(torrent[1])
                     except Exception as exc:
                         logger.error(f"{type(exc).__name__}({exc})")
                     else:
-                        if task is not None and task.done_date != datetime.fromtimestamp(0):
+                        if (
+                            task is not None
+                            and task.done_date is not None
+                            and task.done_date != datetime.fromtimestamp(0)
+                        ):
                             response = f'Torrent "*{task.name}*" was successfully downloaded'
                             try:
                                 notify_flag = False

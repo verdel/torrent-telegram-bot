@@ -35,8 +35,10 @@ class Transmission:
                 status=torrent.status,
                 progress=torrent.progress,
                 download_speed=torrent.rate_download,
-                num_seeds=torrent.peers_sending_to_us,
-                ratio=torrent.rate_download,
+                upload_speed=torrent.rate_upload,
+                num_seeds_download=torrent.peers_sending_to_us,
+                num_seeds_upload=torrent.peers_getting_from_us,
+                ratio=torrent.ratio,
             )
             for torrent in torrents
         ]
@@ -52,8 +54,10 @@ class Transmission:
             status=torrent.status,
             progress=torrent.progress,
             download_speed=torrent.rate_download,
-            num_seeds=torrent.peers_sending_to_us,
-            ratio=torrent.rate_download,
+            upload_speed=torrent.rate_upload,
+            num_seeds_download=torrent.peers_sending_to_us,
+            num_seeds_upload=torrent.peers_getting_from_us,
+            ratio=torrent.ratio,
         )
 
     def remove_torrent(self, torrent_id: str, delete_data: bool = True):
@@ -64,27 +68,18 @@ class Transmission:
         """Add torrent to client"""
         if "download_dir" in kwargs:
             torrent = self.client.add_torrent(torrent=torrent_data, download_dir=kwargs.get("download_dir"))
-            return Torrent(
-                torrent_id=str(torrent.id),
-                name=torrent.name,
-                done_date=torrent.done_date,
-                eta=torrent.eta,
-                status=torrent.status,
-                progress=torrent.progress,
-                download_speed=torrent.rate_download,
-                num_seeds=torrent.peers_sending_to_us,
-                ratio=torrent.rate_download,
-            )
         else:
             torrent = self.client.add_torrent(torrent=torrent_data)
-            return Torrent(
-                torrent_id=str(torrent.id),
-                name=torrent.name,
-                done_date=torrent.done_date,
-                eta=torrent.eta,
-                status=torrent.status,
-                progress=torrent.progress,
-                download_speed=torrent.rate_download,
-                num_seeds=torrent.peers_sending_to_us,
-                ratio=torrent.rate_download,
-            )
+        return Torrent(
+            torrent_id=str(torrent.id),
+            name=torrent.name,
+            done_date=None,
+            eta=None,
+            status="",
+            progress=0,
+            download_speed=0,
+            upload_speed=0,
+            num_seeds_download=0,
+            num_seeds_upload=0,
+            ratio=0,
+        )
