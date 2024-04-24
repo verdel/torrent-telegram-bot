@@ -31,9 +31,9 @@ jobs:
         run: |
           poetry install
 
-      - name: Check code formatting by black
+      - name: Check code formatting by ruff
         run: |
-          poetry run black . --check
+          poetry run ruff format --check
 
       - name: Lint code by ruff
         run: |
