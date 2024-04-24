@@ -24,6 +24,6 @@ COPY docker/rootfs /
 
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
-COPY transmission_telegram_bot ./transmission_telegram_bot
+COPY torrent_telegram_bot ./torrent_telegram_bot
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
