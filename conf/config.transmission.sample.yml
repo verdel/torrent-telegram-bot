@@ -1,0 +1,45 @@
+telegram:
+  token: tg-token
+
+  allow_chat:
+    - telegram_id: 111111111
+      torrent_permission: "all"
+      allow_category:
+        - Movies
+        - Series
+      notify: all
+
+    - telegram_id: 222222222
+      torrent_permission: "personal"
+      notify: personal
+
+    - telegram_id: 333333333
+      torrent_permission: "personal"
+      notify: "none"
+
+  proxy:
+    url: socks5://username:password@socks.com:55555
+
+client:
+  type: transmission
+  address: transmission.local
+  port: 9091
+  user: username
+  password: password
+  path:
+    - category: "Movies"
+      dir: "/mnt/data/Movies"
+
+    - category: "Series"
+      dir: "/mnt/data/Series"
+
+db:
+  path: conf/bot.db
+
+schedule:
+  check_period: 10
+  max_instances: 1
+
+sentry:
+  dsn: https://74097a32c14840acaa22410e4ca171c0@o447962.ingest.sentry.io/4504037633556480
+  environment: testing

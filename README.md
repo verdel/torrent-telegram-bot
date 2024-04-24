@@ -1,10 +1,10 @@
-# Transmission Telegram Bot
+# Torrent Telegram Bot
 
 ## What is this?
 
-With transmission telegram bot, you can manage your Transmission torrent client. You can add, delete and list torrent entry.
+With torrent telegram bot, you can manage your Transmission or Qbittorrent torrent client. You can add, delete and list torrent entry.
 
-To get started create `config.yml` file with your favourite text editor. Add your bot token ID, allowed user or chat ID (not username), transmission url, username and password etc.
+To get started create `config.yml` file with your favourite text editor. Add your bot token ID, allowed user or chat ID (not username), torrent client url, username and password etc.
 
 ## Installation
 
@@ -22,12 +22,12 @@ To customize bot, create `config.yml`, then add one or more of the variables. Fo
 ## Usage
 
 Create telegram bot with **@BotFather**.
-Create transmission telegram bot configuration file. And start you bot.
+Create torrent telegram bot configuration file. And start you bot.
 
 To start bot use command:
 
 ```console
-poetry run python -m transmission_telegram_bot.bot -c config.yml
+poetry run python -m torrent_telegram_bot.bot -c config.yml
 ```
 
 Now you can start interacting with your bot.

@@ -15,13 +15,14 @@ telegram:
       username: {{ TELEGRAM_PROXY_USERNAME }}
       password: {{ TELEGRAM_PROXY_PASSWORD }}
 {% endif %}
-transmission:
-    address: {{ TRANSMISSION_SERVER }}
-    port: {{ TRANSMISSION_PORT }}
-    user: {{ TRANSMISSION_USERNAME }}
-    password: {{ TRANSMISSION_PASSWORD }}
+client:
+    type: {{ TORRENT_CLIENT_TYPE }}
+    address: {{ TORRENT_CLIENT_SERVER }}
+    port: {{ TORRENT_CLIENT_PORT }}
+    user: {{ TORRENT_CLIENT_USERNAME }}
+    password: {{ TORRENT_CLIENT_PASSWORD }}
     path:
-{% for item in TRANSMISSION_PATH | from_json %}
+{% for item in TORRENT_CLIENT_PATH | from_json %}
       - category: {{ item['category'] }}
         dir: '{{ item['dir'] }}'
 {% endfor %}

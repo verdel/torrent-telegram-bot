@@ -2,6 +2,7 @@ import argparse
 import sys
 import traceback
 from base64 import b64decode, b64encode
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from textwrap import dedent
@@ -9,24 +10,14 @@ from typing import Coroutine
 
 import sentry_sdk
 from emoji import emojize
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    request,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CallbackQueryHandler,
-    CommandHandler,
-    MessageHandler,
-    filters,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, request
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
-import transmission_telegram_bot.tools as tools
-from transmission_telegram_bot import _version
-from transmission_telegram_bot.db import DB
-from transmission_telegram_bot.transmission import Transmission
+import torrent_telegram_bot.tools as tools
+from torrent_telegram_bot import _version
+from torrent_telegram_bot.db import DB
+from torrent_telegram_bot.qbittorrent import Qbittorrent
+from torrent_telegram_bot.transmission import Transmission
 
 
 def restricted(func):
@@ -72,7 +63,7 @@ async def text_message_action(update, context):
 
 
 async def get_torrents(update, context, **kwargs):
-    global transmission
+    global client
     torrents = []
     try:
         permission = tools.get_torrent_permission(config=cfg, chat_id=update.effective_chat.id)
@@ -89,10 +80,10 @@ async def get_torrents(update, context, **kwargs):
                 db_torrents = await db.get_torrent_by_uid(update.effective_chat.id)
                 if db_torrents:
                     for db_entry in db_torrents:
-                        torrent = transmission.get_torrent(int(db_entry[1]))
+                        torrent = client.get_torrent(db_entry[1])
                         torrents.append(torrent)
         elif permission == "all":
-            torrents = transmission.get_torrents()
+            torrents = client.get_torrents()
     return torrents
 
 
@@ -106,14 +97,14 @@ async def download_torrent_action(update, context):
     context.user_data.update({"torrent_data": torrent_data})
     category = tools.get_torrent_category(config=cfg, chat_id=update.effective_chat.id)
 
-    for transmission_path in cfg["transmission"]["path"]:
+    for client_path in cfg["client"]["path"]:
         if category:
-            if transmission_path["category"] in category:
+            if client_path["category"] in category:
                 keyboard.append(
                     [
                         InlineKeyboardButton(
-                            transmission_path["category"],
-                            callback_data=f'download:{transmission_path["dir"]}',
+                            client_path["category"],
+                            callback_data=f'download:{client_path["dir"]}',
                         )
                     ]
                 )
@@ -121,8 +112,8 @@ async def download_torrent_action(update, context):
             keyboard.append(
                 [
                     InlineKeyboardButton(
-                        transmission_path["category"],
-                        callback_data=f'download:{transmission_path["dir"]}',
+                        client_path["category"],
+                        callback_data=f'download:{client_path["dir"]}',
                     )
                 ]
             )
@@ -139,7 +130,7 @@ async def download_torrent_action(update, context):
 
 @restricted
 async def download_torrent_logic(update, context):
-    global transmission
+    global client
     callback_data = update.callback_query.data.replace("download:", "")
     if callback_data == "cancel":
         await context.bot.delete_message(
@@ -148,7 +139,7 @@ async def download_torrent_logic(update, context):
         )
     else:
         try:
-            result = transmission.add_torrent(
+            result = client.add_torrent(
                 torrent_data=b64decode(context.user_data["torrent_data"]),
                 download_dir=callback_data,
             )
@@ -174,13 +165,13 @@ async def download_torrent_logic(update, context):
                 await error_action(update, context)
             else:
                 try:
-                    await db.add_torrent(update.callback_query.message.chat.id, str(result.id))
+                    await db.add_torrent(update.callback_query.message.chat.id, str(result.torrent_id))
                 except Exception:
                     await error_action(update, context)
 
             logger.info(
                 f"User {update.effective_user.first_name} "
-                f"{update.effective_user.last_name}({update.effective_user.username}) "
+                f"{update.effective_user.last_name} ({update.effective_user.username}) "
                 f"added a torrent file {result.name} to the torrent client download queue "
                 f"with the path {callback_data}"
             )
@@ -204,7 +195,14 @@ async def delete_torrent_action(update, context):
     torrents = await get_torrents(update, context)
     if len(torrents) > 0:
         for torrent in torrents:
-            keyboard.append([InlineKeyboardButton(torrent.name, callback_data=f"delete:{torrent.id}")])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        torrent.name,
+                        callback_data=f"delete:{torrent.torrent_id}",
+                    )
+                ]
+            )
         keyboard.append([InlineKeyboardButton("Cancel", callback_data="delete:cancel")])
         try:
             await context.bot.send_message(
@@ -223,7 +221,7 @@ async def delete_torrent_action(update, context):
 
 @restricted
 async def delete_torrent_logic(update, context):  # noqa: C901
-    global transmission
+    global client
     callback_data: str = update.callback_query.data.replace("delete:", "")
     if callback_data == "cancel":
         await context.bot.delete_message(
@@ -239,8 +237,10 @@ async def delete_torrent_logic(update, context):  # noqa: C901
         else:
             torrent_name = ""
             try:
-                torrent_name = transmission.get_torrent(int(callback_data)).name
-                transmission.remove_torrent(torrent_id=int(callback_data))
+                torrent = client.get_torrent(callback_data)
+                if torrent is not None:
+                    torrent_name = torrent.name
+                client.remove_torrent(torrent_id=callback_data)
             except Exception:
                 await error_action(update, context)
                 if torrent_name != "":
@@ -267,7 +267,9 @@ async def delete_torrent_logic(update, context):  # noqa: C901
                 )
     else:
         try:
-            torrent_name = transmission.get_torrent(int(callback_data)).name
+            torrent = client.get_torrent(callback_data)
+            if torrent is not None:
+                torrent_name = torrent.name
         except Exception:
             await error_action(update, context)
         else:
@@ -294,7 +296,7 @@ async def list_torrent_action(update, context, **kwargs):
     if len(torrents) > 0:
         try:
             for torrent in torrents:
-                if not torrent.done_date:
+                if torrent.done_date == datetime.fromtimestamp(0):
                     try:
                         eta = str(torrent.eta)
                     except ValueError:
@@ -304,9 +306,9 @@ async def list_torrent_action(update, context, **kwargs):
                         *{torrent.name}*
                         Status: {torrent.status}
                         Procent: {round(torrent.progress, 2)}%
-                        Speed: {tools.humanize_bytes(torrent.rate_download)}/s
+                        Speed: {tools.humanize_bytes(torrent.download_speed)}/s
                         ETA: {eta}
-                        Peers: {torrent.peers_sending_to_us}
+                        Peers: {torrent.num_seeds}
                         """
                     )
                 else:
@@ -314,9 +316,9 @@ async def list_torrent_action(update, context, **kwargs):
                         f"""
                         *{torrent.name}*
                         Status: {torrent.status}
-                        Speed: {tools.humanize_bytes(torrent.rate_upload)}/s
-                        Peers: {torrent.peers_getting_from_us}
-                        Ratio: {torrent.upload_ratio}
+                        Speed: {tools.humanize_bytes(torrent.download_speed)}/s
+                        Peers: {torrent.num_seeds}
+                        Ratio: {torrent.ratio}
                         """
                     )
                 await context.bot.send_message(
@@ -404,7 +406,7 @@ async def error_action(update, context):
 
 
 async def check_torrent_download_status(context):  # noqa: C901
-    global transmission
+    global client
     global db
 
     if isinstance(db, Coroutine):
@@ -418,17 +420,17 @@ async def check_torrent_download_status(context):  # noqa: C901
         if torrents:
             for torrent in torrents:
                 try:
-                    task = transmission.get_torrent(int(torrent[1]))
+                    task = client.get_torrent(torrent[1])
                 except Exception:
                     await db.remove_torrent_by_id(torrent[1])
                 else:
                     try:
-                        if task.done_date:
+                        if task is not None and task.done_date != datetime.fromtimestamp(0):
                             await db.complete_torrent(torrent[1])
                     except Exception as exc:
                         logger.error(f"{type(exc).__name__}({exc})")
                     else:
-                        if task.done_date:
+                        if task is not None and task.done_date != datetime.fromtimestamp(0):
                             response = f'Torrent "*{task.name}*" was successfully downloaded'
                             try:
                                 notify_flag = False
@@ -464,7 +466,7 @@ async def check_torrent_download_status(context):  # noqa: C901
 
 def main():
     global cfg
-    global transmission
+    global client
     global db
     global logger
 
@@ -476,10 +478,10 @@ def main():
     logger = tools.init_log(debug=args.debug)
 
     if not Path(args.config).is_file():
-        logger.error(f"Transmission telegram bot configuration file {args.config} not found")
+        logger.error(f"Torrent telegram bot configuration file {args.config} not found")
         sys.exit()
 
-    logger.info("Starting transmission telegram bot")
+    logger.info("Starting torrent telegram bot")
 
     try:
         cfg = tools.get_config(args.config)
@@ -496,14 +498,22 @@ def main():
         )
 
     try:
-        transmission = Transmission(
-            address=cfg["transmission"]["address"],
-            port=cfg["transmission"]["port"],
-            user=cfg["transmission"]["user"],
-            password=cfg["transmission"]["password"],
-        )
+        if cfg["client"]["type"] == "transmission":
+            client = Transmission(
+                address=cfg["client"]["address"],
+                port=cfg["client"]["port"],
+                user=cfg["client"]["user"],
+                password=cfg["client"]["password"],
+            )
+        else:
+            client = Qbittorrent(
+                address=cfg["client"]["address"],
+                port=cfg["client"]["port"],
+                user=cfg["client"]["user"],
+                password=cfg["client"]["password"],
+            )
     except Exception as exc:
-        logger.error(f"Transmission connection error: {exc}")
+        logger.error(f"Torrent client connection error: {exc}")
         sys.exit(1)
 
     try:

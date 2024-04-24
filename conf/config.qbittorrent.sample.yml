@@ -20,9 +20,10 @@ telegram:
   proxy:
     url: socks5://username:password@socks.com:55555
 
-transmission:
-  address: transmission.local
-  port: 9091
+client:
+  type: qbittorrent
+  address: qbittorrent.local
+  port: 8080
   user: username
   password: password
   path:
