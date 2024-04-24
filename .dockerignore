@@ -1,5 +1,5 @@
 *
 !docker/
-!transmission_telegram_bot/
+!torrent_telegram_bot/
 !poetry.lock
 !pyproject.toml
