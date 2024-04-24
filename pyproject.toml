@@ -43,6 +43,6 @@ line-ending = "auto"
 
 [tool.pyright]
 reportUnnecessaryTypeIgnoreComment="warning"
-exclude = ["docker"]
+exclude = ["docker", ".venv"]
 
 [tool.poetry_bumpversion.file."torrent_telegram_bot/_version.py"]
