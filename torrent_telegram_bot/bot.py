@@ -7,6 +7,7 @@ from functools import wraps
 from pathlib import Path
 from textwrap import dedent
 from typing import Coroutine
+from zoneinfo import ZoneInfo
 
 import sentry_sdk
 from emoji import emojize
@@ -297,7 +298,9 @@ async def list_torrent_action(update, context, **kwargs):
     if len(torrents) > 0:
         try:
             for torrent in torrents:
-                if torrent.done_date is None or torrent.done_date == datetime.fromtimestamp(0):
+                if torrent.done_date is None or torrent.done_date == datetime.fromtimestamp(0, ZoneInfo("UTC")).replace(
+                    tzinfo=None
+                ):
                     try:
                         eta = str(torrent.eta)
                     except ValueError:
@@ -319,7 +322,7 @@ async def list_torrent_action(update, context, **kwargs):
                         Status: {torrent.status}
                         Speed: {tools.humanize_bytes(torrent.upload_speed)}/s
                         Peers: {torrent.num_seeds_upload}
-                        Ratio: {torrent.ratio}
+                        Ratio: {round(torrent.ratio, 2)}
                         """
                     )
                 await context.bot.send_message(
@@ -429,7 +432,7 @@ async def check_torrent_download_status(context):  # noqa: C901
                         if (
                             task is not None
                             and task.done_date is not None
-                            and task.done_date != datetime.fromtimestamp(0)
+                            and task.done_date != datetime.fromtimestamp(0, ZoneInfo("UTC")).replace(tzinfo=None)
                         ):
                             await db.complete_torrent(torrent[1])
                     except Exception as exc:
@@ -438,7 +441,7 @@ async def check_torrent_download_status(context):  # noqa: C901
                         if (
                             task is not None
                             and task.done_date is not None
-                            and task.done_date != datetime.fromtimestamp(0)
+                            and task.done_date != datetime.fromtimestamp(0, ZoneInfo("UTC")).replace(tzinfo=None)
                         ):
                             response = f'Torrent "*{task.name}*" was successfully downloaded'
                             try:

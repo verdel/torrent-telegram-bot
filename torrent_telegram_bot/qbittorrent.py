@@ -2,6 +2,7 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from time import sleep
+from zoneinfo import ZoneInfo
 
 from qbittorrentapi import Client
 
@@ -40,7 +41,9 @@ class Qbittorrent:
             Torrent(
                 torrent_id=str(torrent.hash),
                 name=torrent.name,
-                done_date=datetime.fromtimestamp(torrent.completion_on),
+                done_date=datetime.fromtimestamp(
+                    0 if torrent.completion_on < 0 else torrent.completion_on, ZoneInfo("UTC")
+                ).replace(tzinfo=None),
                 eta=timedelta(seconds=torrent.eta),
                 status=torrent.state,
                 progress=torrent.progress * 100,
@@ -61,7 +64,9 @@ class Qbittorrent:
                 return Torrent(
                     torrent_id=str(torrent.hash),
                     name=torrent.name,
-                    done_date=datetime.fromtimestamp(torrent.completion_on),
+                    done_date=datetime.fromtimestamp(
+                        0 if torrent.completion_on < 0 else torrent.completion_on, ZoneInfo("UTC")
+                    ).replace(tzinfo=None),
                     eta=timedelta(seconds=torrent.eta),
                     status=torrent.state,
                     progress=torrent.progress * 100,
@@ -104,7 +109,9 @@ class Qbittorrent:
         return Torrent(
             torrent_id=str(torrent.hash),
             name=torrent.name,
-            done_date=datetime.fromtimestamp(torrent.completion_on),
+            done_date=datetime.fromtimestamp(
+                0 if torrent.completion_on < 0 else torrent.completion_on, ZoneInfo("UTC")
+            ).replace(tzinfo=None),
             eta=timedelta(seconds=torrent.eta),
             status=torrent.state,
             progress=torrent.progress * 100,
