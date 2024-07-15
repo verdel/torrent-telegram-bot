@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "torrent-telegram-bot"
-version = "0.1.4"
+version = "0.1.5"
 description = ""
 authors = ["Vadim Aleksandrov <valeksandrov@me.com>"]
 readme = "README.md"
