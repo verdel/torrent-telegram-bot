@@ -537,7 +537,7 @@ def main():
     application = ApplicationBuilder().token(cfg["telegram"]["token"])
 
     if "proxy" in cfg["telegram"]:
-        request_instance = request.HTTPXRequest(proxy_url=cfg["telegram"]["proxy"]["url"])
+        request_instance = request.HTTPXRequest(proxy=cfg["telegram"]["proxy"]["url"])
         application.request(request_instance).get_updates_request(request_instance)
 
     application = application.build()
@@ -588,6 +588,38 @@ def main():
     db.close()
 
 
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()
 if __name__ == "__main__":
