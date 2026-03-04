@@ -1,4 +1,4 @@
-FROM python:3.12 as builder
+FROM python:3.12 AS builder
 
 RUN pip install poetry==1.7.1
 
@@ -13,7 +13,7 @@ COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --without dev --no-root
 
-FROM python:3.12-slim as runtime
+FROM python:3.12-slim AS runtime
 
 RUN pip install jinjanator jinjanator-plugin-ansible
 
