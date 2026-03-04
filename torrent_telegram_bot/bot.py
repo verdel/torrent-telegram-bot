@@ -105,7 +105,7 @@ async def download_torrent_action(update, context):
                     [
                         InlineKeyboardButton(
                             client_path["category"],
-                            callback_data=f'download:{client_path["dir"]}',
+                            callback_data=f"download:{client_path['dir']}",
                         )
                     ]
                 )
@@ -114,7 +114,7 @@ async def download_torrent_action(update, context):
                 [
                     InlineKeyboardButton(
                         client_path["category"],
-                        callback_data=f'download:{client_path["dir"]}',
+                        callback_data=f"download:{client_path['dir']}",
                     )
                 ]
             )
@@ -338,9 +338,9 @@ async def list_torrent_action(update, context, **kwargs):
 
 def make_main_keyboard():
     custom_keyboard = [
-        [f'{emojize(":arrow_down:", language="alias")}List Downloading'],
-        [f'{emojize(":page_facing_up:", language="alias")}List All'],
-        [f'{emojize(":cross_mark:", language="alias")}Delete'],
+        [f"{emojize(':arrow_down:', language='alias')}List Downloading"],
+        [f"{emojize(':page_facing_up:', language='alias')}List All"],
+        [f"{emojize(':cross_mark:', language='alias')}Delete"],
     ]
     make_markup = ReplyKeyboardMarkup(custom_keyboard, resize_keyboard=True)
     return make_markup
@@ -588,5 +588,7 @@ def main():
     db.close()
 
 
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()
